@@ -16,7 +16,7 @@ require(knitr)
 require(graphics)
 require(ROCR) 
 require(maps)
-recs <- read.csv('~/Desktop/recs2015_public_v1.csv', na.strings = c("", "NA"))
+recs <- read.csv('recs2015_public_v1.csv', na.strings = c("", "NA"))
 ```
 #1 How region characteristics affect the refrigerator selling
 #1.1 How region characteristics affect the number of refrigerator
@@ -557,7 +557,7 @@ From the figure and table above, the result is reasonable that clearly people in
 
 #2 How household income affect the refrigerator selling
 ##2.1 How does different household income affect the number of refrigerators
-```{r, fig.height=3, fig.width=8, warning=FALSE,echo=FALSE, message=FALSE}
+```{r, fig.height=5, fig.width=8, warning=FALSE,echo=FALSE, message=FALSE}
 recs %>% 
   group_by(MONEYPY) %>%
   select(MONEYPY, NUMFRIG) %>%
@@ -859,7 +859,7 @@ To test our conclusion, use anova again to test whether there is a significant r
 #5 Statistics model for refrigerator data prediction and variable selection for significant factors
 ```{r,warning= FALSE, message= FALSE, echo=FALSE}
 require(MASS)
-refrig1<-read.csv('~/Desktop/recs2015_public_v1.csv')
+refrig1<-read.csv('recs2015_public_v1.csv')
 recs<-refrig1[-c(which(refrig1$SIZRFRI1==-2),c(which(refrig1$AGERFRI1==-2))),]
 
 recs<-recs[-c(which(refrig1$SIZRFRI1==-2),c(which(refrig1$AGERFRI1==-2))),]
