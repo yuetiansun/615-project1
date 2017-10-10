@@ -1,0 +1,996 @@
+---
+title: "Refrigerator Sales Analysis"
+author: "Yuetian Sun; Chen Jing; Keer Jiang; Ge Jin"
+date: "10/8/2017"
+output: pdf_document
+---
+#Introduction
+This report presents a competitive analysis of the US refrigerator market based on the [2015 EIA data](https://www.eia.gov/consumption/residential/data/2015/). We want to explore how to improve the sale of refrigerators by using a more intuitional way with visualising, transforming and modeling the data.
+After searching some marketing information, we decide to devide the problem into five part. The first part is analyzing how region characteristics affect the refrigerator selling. More specificly we focus on how region, census division, metropolitan or micropolitan statistical area, urban type and climate zones affect the number, age, size and through-the-door ice of refrigerators. And we utilize Anova test to see if these factors does affect refrigerator selling. 
+The second part is about how different household income affect the number, size, age and whether has through-the-door ice of refrigerators. In the third, we try to find how these factors affect whether people should purchase energy star qualified refrigerator. And in the fourth part, we focus on how the factors affect purchasing recycling refrigerators.The fifth part is to build statistics model by using Logistics regression to predict number, size, and age of refrigerator. We use AIC to do variable selection and use ROC curve and AUC method to evaluate the model.
+After data visulization, hypotheses testing, model selection and model evaluation, we can come to the conclusion of the place where we should develop our market in and what kinds of the refrigerator we should product most. We make specific analysis on selling different kinds of refrigerator to different people. Most importantly, we give specific suggestion on how to improve the sale of refrigerator.
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+require(ggplot2)
+require(tidyverse)
+require(knitr)
+require(graphics)
+require(ROCR) 
+require(maps)
+recs <- read.csv('~/Desktop/recs2015_public_v1.csv', na.strings = c("", "NA"))
+```
+#1 How region characteristics affect the refrigerator selling
+#1.1 How region characteristics affect the number of refrigerator
+##1.1.1 How the census affects the number of refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#get the number of refrigerator used in different census division
+num_census=group_by(recs, DIVISION) %>%
+summarise(num=sum(NUMFRIG))
+#get the average number of refrigerator used in different census division
+aver_census=group_by(recs, DIVISION) %>%
+summarise(aver=mean(NUMFRIG))
+
+#plot the mean/number of refrigerator used in different census division
+by_div<-group_by(recs,DIVISION) %>%
+  summarise(average=mean(NUMFRIG),total=sum(NUMFRIG))
+
+state.dat <- map_data("state")
+
+
+for (i in 1:nrow(state.dat)){
+  if (state.dat$region[i]=='connecticut'||state.dat$region[i]=='maine'||
+      state.dat$region[i]=='massachusetts'||state.dat$region[i]=='new hampshire'||
+      state.dat$region[i]=='rhode island'||state.dat$region[i]=='vermont'){
+    state.dat$average.ref[i]=by_div$average[1]
+    state.dat$sum.ref[i]=by_div$total[1]
+  }
+  if (state.dat$region[i]=='new jersey'||state.dat$region[i]=='new york'||
+      state.dat$region[i]=='pennsylvania'){
+    state.dat$average.ref[i]=by_div$average[2]
+    state.dat$sum.ref[i]=by_div$total[2]
+  }
+  if (state.dat$region[i]=='illinois'||state.dat$region[i]=='indiana'||
+      state.dat$region[i]=='michigan'||state.dat$region[i]=='ohio'||
+      state.dat$region[i]=='wisconsin'){
+    state.dat$average.ref[i]=by_div$average[3]
+    state.dat$sum.ref[i]=by_div$total[3]
+  }
+  if (state.dat$region[i]=='iowa'||state.dat$region[i]=='kansas'||
+      state.dat$region[i]=='minnesota'||state.dat$region[i]=='missouri'||
+      state.dat$region[i]=='nebraska'||state.dat$region[i]=='north dakota'||
+      state.dat$region[i]=='south dakota'){
+    state.dat$average.ref[i]=by_div$average[4]
+    state.dat$sum.ref[i]=by_div$total[4]
+  }
+  if (state.dat$region[i]=='delaware'||state.dat$region[i]=='florida'||
+      state.dat$region[i]=='georgia'||state.dat$region[i]=='maryland'||
+      state.dat$region[i]=='north carolina'||state.dat$region[i]=='south carolina'||
+      state.dat$region[i]=='virginia'||state.dat$region[i]=='district of columbia'||
+      state.dat$region[i]=='west virginia'){
+    state.dat$average.ref[i]=by_div$average[5]
+    state.dat$sum.ref[i]=by_div$total[5]
+  }
+  if (state.dat$region[i]=='alabama'||state.dat$region[i]=='kentucky'||
+      state.dat$region[i]=='mississippi'||state.dat$region[i]=='tennessee'){
+    state.dat$average.ref[i]=by_div$average[6]
+    state.dat$sum.ref[i]=by_div$total[6]
+  }
+  if (state.dat$region[i]=='arkansas'||state.dat$region[i]=='louisiana'||
+      state.dat$region[i]=='oklahoma'||state.dat$region[i]=='texas'){
+    state.dat$average.ref[i]=by_div$average[7]
+    state.dat$sum.ref[i]=by_div$total[7]
+  }
+  if (state.dat$region[i]=='idaho'||state.dat$region[i]=='montana'||
+      state.dat$region[i]=='wyoming'){
+    state.dat$average.ref[i]=by_div$average[8]
+    state.dat$sum.ref[i]=by_div$total[8]
+  }
+  if (state.dat$region[i]=='arizona'||state.dat$region[i]=='colorado'||
+      state.dat$region[i]=='nevada'||state.dat$region[i]=='new mexico'||
+      state.dat$region[i]=='utah'){
+    state.dat$average.ref[i]=by_div$average[9]
+    state.dat$sum.ref[i]=by_div$total[9]
+  }
+  if (state.dat$region[i]=='alaska'||state.dat$region[i]=='california'||
+      state.dat$region[i]=='hawaii'||state.dat$region[i]=='oregon'||
+      state.dat$region[i]=='washington'){
+    state.dat$average.ref[i]=by_div$average[10]
+    state.dat$sum.ref[i]=by_div$total[10]
+  }
+
+  
+}
+par(mfrow=c(2,1))
+p1 <- ggplot() + geom_polygon(aes(long,lat,group=group,fill=average.ref),color="light blue",data=state.dat)
+p1 <- p1 + geom_polygon(aes(long,lat,group=group),color="black",fill=NA,data=state.dat) 
+p1 <- p1 + coord_fixed(ratio=1/cos(pi*40/180))
+p1 <- p1 + scale_fill_continuous(limits=c(1.3,1.6),low="yellow",high="dark green")
+p1 <- p1 + labs(title = "Average of Refrigerator Based on U.S. Division")
+p1
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+p2 <- ggplot() + geom_polygon(aes(long,lat,group=group,fill=sum.ref),color="light blue",data=state.dat)
+p2 <- p2 + geom_polygon(aes(long,lat,group=group),color="black",fill=NA,data=state.dat) 
+p2 <- p2 + coord_fixed(ratio=1/cos(pi*40/180))
+p2 <- p2 + scale_fill_continuous(limits=c(320,1500),low="lemonchiffon",high="orange")
+p2 <- p2 + labs(title = "Total of Refrigerator Based on U.S. Division ")
+p2
+par(mfrow=c(1,1))
+#use Anova to test whether there is significant difference among the mean value
+test_cen<-lm(recs$NUMFRIG~recs$DIVISION)
+kable(anova(test_cen), caption = "Anova test of region")
+```
+
+As we can see from the plot above, there is big difference among the total number of refrigerators people bought from different census divisions. The Pacific and South Atlantic parts seem to have more refrigerators than the others. While the New England, Mountain North and Mountain South seem to have fewer.We all know that the South Atlantic and Pacific are near the ocean and the south part has higher temperature than the Northeast part. Thus, we can make an assumption that the number of refrigerator has correlation between census division regional characteristics like the weather. Another assumption is that it is simply because this survey included lots of people from South. So we use Anova to test the difference among the average value in different census division. As we can see from the table above, the result shows that there is significant difference among the mean. Thus, we can draw the conclusion that census division parts do have significant effect on buying refrigerator. People from mountain north and west north central would like to buy more refrigerator than the others.
+
+##1.1.2 How Metropolitan or Micropolitan affects the number of refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=7}
+#get the number of refrigerator used in Metropolitan or Micropolitan area
+num_metmic=group_by(recs, METROMICRO) %>%
+summarise(num=sum(NUMFRIG))
+#plot the num of refrigerator in Metropolitan or Micropolitan area
+ggplot(data=num_metmic)+geom_bar(aes(x=METROMICRO ,y=num, fill=METROMICRO),stat = "identity", alpha=0.5)+labs(x="Metropolitan Area or Micropolitan Area", y="Number of Refrigerator", title="Number of refrigerator in Metropolitan Area or Micropolitan Area")
+
+#get the average number of refrigerator used in Metropolitan or Micropolitan area
+aver_metmic=group_by(recs, METROMICRO) %>%
+summarise(aver=mean(NUMFRIG))
+#plot the average number of refrigerator in Metropolitan or Micropolitan area
+ggplot(data=aver_metmic)+geom_bar(aes(x=METROMICRO ,y=aver, fill=METROMICRO),stat = "identity", alpha=0.5)+labs(x="Metropolitan Area or Micropolitan Area", y="Average Number of Refrigerator", title="Average number of refrigerator in Metropolitan Area or Micropolitan Area")
+
+#use Anova to test whether there is significant difference among the mean value
+test_metmic<-lm(recs$NUMFRIG~recs$METROMICRO)
+kable(anova(test_metmic), caption = "Anova test of Metropolitan or Micropolitan area")
+```
+
+As we can see from the graph, the Metropolitan area has much more refrigerator than the others. We think it may because there are lots of people living in the Metropolitan area or they tend to have more income. To make it more precisely, we use anova to test the whether there are significant difference among the average number of refregerator people bought in these area. As we can see from the table above, the p-value is much larger than the significant value. Thus we believe there is actually no difference in the number of buying refrigerator per person no matter the costomer coming from big city. So we can develop our business in Metropolitan or the city which is booming and will have larger population in the future.
+
+##1.1.3 How do Climate Zones affect the number of refrigerators
+```{r, warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=7}
+recs$MONEYPY <-  as.factor(recs$MONEYPY)
+levels(recs$MONEYPY) <- c("<$20k", "$20k - $40k", 
+                            "$40k - $60k", "$60k - $80k",
+                            "$80k - $100k", "$100k - $120k",
+                            "$120k - $140k", ">$140k")
+
+refrig_clmmod <- filter(recs, CLIMATE_REGION_PUB != "NA")
+refrig_clmmod$CLIMATE_REGION_PUB <- as.factor(refrig_clmmod$CLIMATE_REGION_PUB)
+
+refrig_sizemod <- recs[-c(which(recs$SIZRFRI1 == -2)), ]
+refrig_sizemod$MONEYPY <-  as.factor(refrig_sizemod$MONEYPY)
+refrig_sizemod$SIZRFRI1 <- as.factor(refrig_sizemod$SIZRFRI1)
+levels(refrig_sizemod$SIZRFRI1) <- c("Half-size", 
+                                     "Small", 
+                                     "Medium", 
+                                     "Large", 
+                                     "Very large")
+
+refrig_icemod <- recs[-c(which(recs$ICE == -2)), ]
+refrig_icemod$MONEYPY <- as.factor(refrig_icemod$MONEYPY)
+refrig_icemod$ICE <- as.factor(refrig_icemod$ICE)
+levels(refrig_icemod$ICE) <- c("No", "Yes")
+
+
+refrig_agemod <- recs[-c(which(recs$AGERFRI1 == -2)), ]
+refrig_agemod$MONEYPY <- as.factor(refrig_agemod$MONEYPY)
+refrig_agemod$AGERFRI1 <- as.factor(refrig_agemod$AGERFRI1)
+levels(refrig_agemod$AGERFRI1) <- c("<2 years",
+                                    "2-4 years",
+                                    "5-9 years",
+                                    "10-14 years",
+                                    "15-19 years",
+                                    ">20 years")
+
+refrig_sizemod_narm <- filter(refrig_sizemod, CLIMATE_REGION_PUB != "NA")
+refrig_sizetable <- table(refrig_sizemod_narm$CLIMATE_REGION_PUB, 
+                          refrig_sizemod_narm$SIZRFRI1)
+
+refrig_icemod_narm <- filter(refrig_sizemod, CLIMATE_REGION_PUB != "NA")
+refrig_icetable <- table(refrig_icemod_narm$CLIMATE_REGION_PUB, 
+                         refrig_icemod_narm$ICE)
+
+refrig_agemod_narm <- filter(refrig_agemod, CLIMATE_REGION_PUB != "NA")
+refrig_agetable <- table(refrig_agemod_narm$CLIMATE_REGION_PUB, 
+                         refrig_agemod_narm$AGERFRI1)
+
+refrig_sizetable2 <- table(refrig_sizemod$MONEYPY, refrig_sizemod$SIZRFRI1)
+
+refrig_icetable2 <- table(refrig_icemod$MONEYPY, refrig_icemod$ICE)
+
+refrig_agetable2 <- table(refrig_agemod$MONEYPY, refrig_agemod$AGERFRI1)
+```
+
+```{r,warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=7}
+kable(refrig_clmmod %>%
+        group_by(CLIMATE_REGION_PUB) %>%
+        select(NUMFRIG, CLIMATE_REGION_PUB) %>%
+        summarise(NUMFRIG = sum(NUMFRIG)),
+        caption = "Total Number of Refrigerators in Different Climate Zones")
+
+refrig_clmmod %>%
+  group_by(CLIMATE_REGION_PUB) %>%
+  select(NUMFRIG, CLIMATE_REGION_PUB) %>%
+  summarise(NUMFRIG = mean(NUMFRIG)) %>%
+  ggplot(aes(x = CLIMATE_REGION_PUB, y = NUMFRIG, fill = CLIMATE_REGION_PUB)) +
+  geom_bar(position = position_dodge(), stat="identity") +
+  ggtitle("The number of refrigerators on average in different Climate Zones") +
+  labs(x = "Climate Zone", y = "Average of refrigerators") +
+  guides(fill=FALSE) +
+  scale_fill_manual(values=c("darkslategray3", "plum","tan1", 
+                             "lightpink2", "darkseagreen3")) +
+  geom_text(aes(label=sprintf("%0.2f", round(NUMFRIG, digits = 2))), vjust = -0.05)
+```
+
+Note that the total number of refrigerators used in cold/very cold areas is the largest whereas the total number in Hot-Dry/Mixed-Dry areas is the least. And from the aspect of average number, the result is similar. So we can conlude that there is more demand for refrigerators in the cold/very cold, and mixed-humid areas.
+
+#1.2 How region characteristics affect the age of refrigerator
+##1.2.1 How region affects the age of most-used refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=7}
+age_region <- select(recs,AGEFRZR,REGIONC)
+age_region[age_region==-2] <- NA
+age_region <- na.omit(age_region)
+age_region$AGEFRZR[age_region$AGEFRZR==1] <- "less than 2 years"
+age_region$AGEFRZR[age_region$AGEFRZR==2] <- "2-4 years"
+age_region$AGEFRZR[age_region$AGEFRZR==3] <- "5-9 years"
+age_region$AGEFRZR[age_region$AGEFRZR==41] <- "10-14 years"
+age_region$AGEFRZR[age_region$AGEFRZR==42] <- "15-19 years"
+age_region$AGEFRZR[age_region$AGEFRZR==5] <- "more than 20 years"
+age_region$AGEFRZR <- as.factor(age_region$AGEFRZR)
+age_region[age_region==1] <- "Northeast"
+age_region[age_region==2] <- "Midwest"
+age_region[age_region==3] <- "South"
+age_region[age_region==4] <- "West"
+#plot the number of refrigerator in different age and region
+ggplot(data = age_region) + 
+  geom_bar(mapping = aes(x = REGIONC, fill = AGEFRZR), position = "dodge",alpha = 1/2)+labs(x="Region", y="Number of refrigerator", title="Number of most-used refrigerator in different age and region")
+
+#get the number and percentage of most-used refrigerator in different region and age
+numregion=group_by(age_region, REGIONC) %>%
+summarise(num=n())
+num_age_region=group_by(age_region, REGIONC, AGEFRZR) %>%
+summarise(num=n())
+num_age_region$num <- num_age_region$num/rep(numregion$num, each=6)
+
+#plot the relevant frequency of the age of most-used refrigerator in different region
+ggplot(data = num_age_region) + 
+  geom_bar(mapping = aes(x = REGIONC, y= num, fill = AGEFRZR), stat="identity",position = "dodge",alpha = 1/2)+labs(x="Region", y="Relevant Frenquency of Refrigerator", title="Relevant frenquency of most-used refrigerator in different age and region")
+
+#sum the frequency of old refrigerator 
+Northeast1 <- filter(num_age_region, REGIONC=="Northeast", AGEFRZR=="15-19 years")
+Northeast2 <- filter(num_age_region, REGIONC=="Northeast", AGEFRZR=="more than 20 years")
+
+Midwest1 <- filter(num_age_region, REGIONC=="Midwest", AGEFRZR=="15-19 years")
+Midwest2 <- filter(num_age_region, REGIONC=="Midwest", AGEFRZR=="more than 20 years")
+
+South1 <- filter(num_age_region, REGIONC=="South", AGEFRZR=="15-19 years")
+South2 <- filter(num_age_region, REGIONC=="South", AGEFRZR=="more than 20 years")
+
+West1 <- filter(num_age_region, REGIONC=="West", AGEFRZR=="15-19 years")
+West2 <- filter(num_age_region, REGIONC=="West", AGEFRZR=="more than 20 years")
+
+#make a table of old refrigerators' relevant frequency
+old_region <- c(Northeast1$num+Northeast2$num, Midwest1$num+Midwest2$num, South1$num+South2$num, West1$num+West2$num)
+old_region<- as.data.frame(old_region)
+rownames(old_region) <- c("Northeast", "Midwest", "South", "West")
+kable(old_region, col.names="Relevant Frequency",caption = "Old refrigerators' relevant frequency in different regions")
+```
+
+We find in the internet that the average usage year of refrigerator is about 15 years. So we define the refrigerator used more than 15 years is a old refrigerator meaning that it will be replace soon in the future. As we can see from the plot, the midwest region has more percentage of old refrigerator from the other regions. Combining the first region analysis result, we can conclude that we develop the market more in Midwest area. People living there not only tend to buy more refrigerator but also they will replace the lots of old one in the future.
+
+##1.2.2 How census division affects the age of most-used refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=13}
+age_census<- select(recs,AGEFRZR,DIVISION)
+age_census[age_census==-2] <- NA
+age_census <- na.omit(age_census)
+age_census$AGEFRZR[age_census$AGEFRZR==1] <- "less than 2 years"
+age_census$AGEFRZR[age_census$AGEFRZR==2] <- "2-4 years"
+age_census$AGEFRZR[age_census$AGEFRZR==3] <- "5-9 years"
+age_census$AGEFRZR[age_census$AGEFRZR==41] <- "10-14 years"
+age_census$AGEFRZR[age_census$AGEFRZR==42] <- "15-19 years"
+age_census$AGEFRZR[age_census$AGEFRZR==5] <- "more than 20 years"
+age_census$AGEFRZR <- as.factor(age_census$AGEFRZR)
+age_census[age_census==1] <- "New England"
+age_census[age_census==2] <- "Middle Atlantic"
+age_census[age_census==3] <- "East North Central"
+age_census[age_census==4] <- "West North Central"
+age_census[age_census==5] <- "South Atlantic"
+age_census[age_census==6] <- "East South Central"
+age_census[age_census==7] <- "West South Central"
+age_census[age_census==8] <- "Mountain North"
+age_census[age_census==9] <- "Mountain South"
+age_census[age_census==10] <- "Pacific"
+#plot the number of refrigerator in different ages and census divisons
+ggplot(data = age_census) + 
+  geom_bar(mapping = aes(x = DIVISION, fill = AGEFRZR), position = "dodge",alpha = 1/2)+labs(x="Census Division", y="Number of refrigerator", title="Number of most-used refrigerator in different ages and census divisions")
+
+#get the number and percentage of most-used refrigerator in different census division and age
+numcensus=group_by(age_census, DIVISION) %>%
+summarise(num=n())
+num_age_census=group_by(age_census, DIVISION, AGEFRZR) %>%
+summarise(num=n())
+num_age_census$num <- num_age_census$num/rep(numcensus$num, each=6)
+
+#plot the relevant frequency of the age of most-used refrigerator in different region
+ggplot(data = num_age_census) + 
+  geom_bar(mapping = aes(x = DIVISION, y= num, fill = AGEFRZR), stat="identity",position = "dodge",alpha = 1/2)+labs(x="Census Division", y="Relevant Frenquency of Refrigerator", title="Relevant frenquency of most-used refrigerator in different ages and census divisions")
+
+#sum the relevant frequency of old refrigerator 
+New_England1 <- filter(num_age_census, DIVISION=="New England", AGEFRZR=="15-19 years")
+New_England2 <- filter(num_age_census, DIVISION=="New England", AGEFRZR=="more than 20 years")
+
+Middle_Atlantic1 <- filter(num_age_census, DIVISION=="Middle Atlantic", AGEFRZR=="15-19 years")
+Middle_Atlantic2 <- filter(num_age_census, DIVISION=="Middle Atlantic", AGEFRZR=="more than 20 years")
+
+East_North_Central1 <- filter(num_age_census, DIVISION=="East North Central", AGEFRZR=="15-19 years")
+East_North_Central2 <- filter(num_age_census, DIVISION=="East North Central", AGEFRZR=="more than 20 years")
+
+West_North_Central1 <- filter(num_age_census, DIVISION=="West North Central", AGEFRZR=="15-19 years")
+West_North_Central2 <- filter(num_age_census, DIVISION=="West North Central", AGEFRZR=="more than 20 years")
+
+South_Atlantic1 <- filter(num_age_census, DIVISION=="South Atlantic", AGEFRZR=="15-19 years")
+South_Atlantic2 <- filter(num_age_census, DIVISION=="South Atlantic", AGEFRZR=="more than 20 years")
+
+East_South_Central1 <- filter(num_age_census, DIVISION=="East South Central", AGEFRZR=="15-19 years")
+East_South_Central2 <- filter(num_age_census, DIVISION=="East South Central", AGEFRZR=="more than 20 years")
+
+West_South_Central1 <- filter(num_age_census, DIVISION=="West South Central", AGEFRZR=="15-19 years")
+West_South_Central2 <- filter(num_age_census, DIVISION=="West South Central", AGEFRZR=="more than 20 years")
+
+Mountain_North1 <- filter(num_age_census, DIVISION=="Mountain North", AGEFRZR=="15-19 years")
+Mountain_North2 <- filter(num_age_census, DIVISION=="Mountain North", AGEFRZR=="more than 20 years")
+
+Mountain_South1 <- filter(num_age_census, DIVISION=="Mountain South", AGEFRZR=="15-19 years")
+Mountain_South2 <- filter(num_age_census, DIVISION=="Mountain South", AGEFRZR=="more than 20 years")
+
+Pacific1 <- filter(num_age_census, DIVISION=="Pacific", AGEFRZR=="15-19 years")
+Pacific2 <- filter(num_age_census, DIVISION=="Pacific", AGEFRZR=="more than 20 years")
+
+#make a table of old refrigerators' relevant frequency
+old_census <- c(New_England1$num+New_England2$num, Middle_Atlantic1$num+Middle_Atlantic2$num, East_North_Central1$num+East_North_Central2$num, West_North_Central1$num+West_North_Central2$num, South_Atlantic1$num+South_Atlantic2$num, East_South_Central1$num+East_South_Central2$num, West_South_Central1$num+West_South_Central2$num, Mountain_North1$num+Mountain_North2$num, Mountain_South1$num+Mountain_South2$num, Pacific1$num+Pacific2$num)
+old_census<- as.data.frame(old_census)
+rownames(old_census) <- c("New England", "Middle Atlantic", "East North Central", "West North Central", "South Atlantic","East South Central", "West South Central", "Mountain North", "Mountain South", "Pacific")
+
+kable(old_census, col.names="Relevant Frequency",caption = "Old refrigerators' relevant frequency in different census divisions")
+```
+
+As we can see from the plot and the percentage of old refrigerator in the different census division, the West North Central has more old refrigerator than the other aparts. Also, Mountain north part, Middle Atlantics and East North Central get large percentage of old refrigerator. Thus, we can sell more product in these area. This result makes sense because the West North Central and East North Central is just subdivision of the Middle part. 
+
+##1.2.3 How Metropolitan or Micropolitan affects the age of most-used refrigerator
+```{r, results= "asis", warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=8}
+#get the number of most-used refrigerators in different ages and Metropolitan or Micropolitan area
+age_metmic <- select(recs,AGEFRZR,METROMICRO)
+age_metmic[age_metmic==-2] <- NA
+age_metmic <- na.omit(age_metmic)
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==1] <- "less than 2 years"
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==2] <- "2-4 years"
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==3] <- "5-9 years"
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==41] <- "10-14 years"
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==42] <- "15-19 years"
+age_metmic$AGEFRZR[age_metmic$AGEFRZR==5] <- "more than 20 years"
+age_metmic$AGEFRZR <- as.factor(age_metmic$AGEFRZR)
+#plot the num of refrigerator in Metropolitan Area or Micropolitan Area
+ggplot(data=age_metmic)+geom_bar(aes(x=METROMICRO, fill = AGEFRZR), position = "dodge",alpha = 1/2)+labs(x="Metropolitan Area or Micropolitan Area", y="Number of refrigerator", title="Number of different ages of most-used refrigerator in Metropolitan types")
+
+#get the number and percentage of most-used refrigerator in Metropolitan or Micropolitan Area and different ages
+nummetmic=group_by(age_metmic, METROMICRO) %>%
+summarise(num=n())
+num_age_metmic=group_by(age_metmic, METROMICRO, AGEFRZR) %>%
+summarise(num=n())
+num_age_metmic$num <- num_age_metmic$num/rep(nummetmic$num, each=6)
+
+#plot the relevant frequency of the age of most-used refrigerator in Metropolitan Area or Micropolitan Area
+ggplot(data = num_age_metmic) + 
+  geom_bar(mapping = aes(x = METROMICRO, y= num, fill = AGEFRZR), stat="identity",position = "dodge",alpha = 1/2)+labs(x="Metropolitan Area or Micropolitan Area", y="Relevant Frenquency of Refrigerator", title="Relevant frenquency of different ages most-used refrigerator in Metropolitan types")
+
+#sum the relevant frequency of old refrigerator 
+METRO1 <- filter(num_age_metmic, METROMICRO=="METRO", AGEFRZR=="15-19 years")
+METRO2 <- filter(num_age_metmic, METROMICRO=="METRO", AGEFRZR=="more than 20 years")
+
+MICRO1 <- filter(num_age_metmic, METROMICRO=="MICRO", AGEFRZR=="15-19 years")
+MICRO2 <- filter(num_age_metmic, METROMICRO=="MICRO", AGEFRZR=="more than 20 years")
+
+NONE1 <- filter(num_age_metmic, METROMICRO=="NONE", AGEFRZR=="15-19 years")
+NONE2 <- filter(num_age_metmic, METROMICRO=="NONE", AGEFRZR=="more than 20 years")
+
+#make a table of old refrigerators' relevant frequency
+old_metmic <- c(METRO1$num+METRO2$num, MICRO1$num+MICRO2$num, NONE1$num+NONE2$num)
+old_metmic <- as.data.frame(old_metmic)
+rownames(old_metmic) <- c("Metropolitan", "Micropolitan", "None")
+
+kable(old_metmic, col.names="Relevant Frequency",caption = "Old refrigerators' relevant frequency in Metropolitan or Micropolitan Area")
+```
+
+From the above plots and results, we find that the percentage of old refrigerator in Metropolitan Area and Micropolitan Area are nearly equal but more than the "None" part. Combining the conclusion that Metropolitan or Micropolitan Area doesn't have significant effect on the average number of refrigerator people buying, we believe the larger population the more old refrigerator in Metropolitan and Micropolitan Area. As a result of these, we can produce more new refrigerators in city where the population is large because lots of people will buy new refrigerator and many old refrigerators need to be replaced.
+
+##1.2.4 How urban type affects the age of most-used refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=7}
+#get the number of different age and urban type of most-usd refrigerator
+age_urban <- select(recs,AGEFRZR,UATYP10)
+age_urban[age_urban==-2] <- NA
+age_urban <- na.omit(age_urban)
+age_urban$AGEFRZR[age_urban$AGEFRZR==1] <- "less than 2 years"
+age_urban$AGEFRZR[age_urban$AGEFRZR==2] <- "2-4 years"
+age_urban$AGEFRZR[age_urban$AGEFRZR==3] <- "5-9 years"
+age_urban$AGEFRZR[age_urban$AGEFRZR==41] <- "10-14 years"
+age_urban$AGEFRZR[age_urban$AGEFRZR==42] <- "15-19 years"
+age_urban$AGEFRZR[age_urban$AGEFRZR==5] <- "more than 20 years"
+age_urban$AGEFRZR <- as.factor(age_urban$AGEFRZR)
+#plot the num of refri in different region
+ggplot(data=age_urban)+geom_bar(aes(x=UATYP10, fill = AGEFRZR), position = "dodge",alpha = 1/2)+labs(x="Urban type", y="Number of refrigerator", title="Number of different age and urban type of most-used refrigerator")
+
+#get the number and percentage of most-used refrigerator in different region and age
+numurban=group_by(age_urban, UATYP10) %>%
+summarise(num=n())
+num_age_urban=group_by(age_urban, UATYP10, AGEFRZR) %>%
+summarise(num=n())
+num_age_urban$num <- num_age_urban$num/rep(numurban$num, each=6)
+
+#plot the frequency of the age of most-used refrigerator in different urban type
+ggplot(data = num_age_urban) + 
+  geom_bar(mapping = aes(x = UATYP10, y= num, fill = AGEFRZR), stat="identity",position = "dodge",alpha = 1/2)+labs(x="Urban type", y="Frenquency of refrigerator", title="Relevant frenquency of most-used refrigerator in different urban type")
+
+#sum the frequency of old refrigerator 
+U1 <- filter(num_age_urban, UATYP10=="U", AGEFRZR=="15-19 years")
+U2 <- filter(num_age_urban, UATYP10=="U", AGEFRZR=="more than 20 years")
+
+R1 <- filter(num_age_urban, UATYP10=="R", AGEFRZR=="15-19 years")
+R2 <- filter(num_age_urban, UATYP10=="R", AGEFRZR=="more than 20 years")
+
+C1 <- filter(num_age_urban, UATYP10=="C", AGEFRZR=="15-19 years")
+C2 <- filter(num_age_urban, UATYP10=="C", AGEFRZR=="more than 20 years")
+
+#make a table of old refrigerators' relevant frequency
+old_urban <- c(U1$num+U2$num, R1$num+R2$num, C1$num+C2$num)
+old_urban <- as.data.frame(old_urban)
+rownames(old_urban) <- c("Urban Area", "Rural Area", "Urban Cluster")
+kable(old_urban, col.names="Relevant Frequency",caption = "Old refrigerators' relevant frequency in different urban types")
+```
+
+As we can see from the above graph, we find that the both rural area and urban cluster has higher rate of old refrigerator. Combining the result with metropolitain types, we can conclude that the we should develop our business in the metropolitain city's rural and urban cluster area. In other words, we should focus on the city with very large poplution and inside the city we put more product in urban cluster and rural area. 
+
+##1.2.5 How do Climate Zones affect the age of refrigerators
+```{r,warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=8}
+refrig_agemod %>%
+  filter(CLIMATE_REGION_PUB != "") %>%
+  group_by(CLIMATE_REGION_PUB) %>%
+  ggplot(aes(x = CLIMATE_REGION_PUB, colour = AGERFRI1)) + 
+  geom_bar(fill = NA, position = "identity") +
+  ggtitle("Age of Refrigerators in different Climate Zones") +
+  labs(x = "Climate Zone", y = "Counts") 
+
+kable(cbind(prop.table(as.matrix(refrig_agetable), margin = 1)), 
+      col.names = c("< 2 years", "2~4 years", "5~9 years",
+                    "10~14 years", "15~19 years", "> 20 years"), 
+      caption = "The Proportion of Age of Refrigerators in different Climate Zone")
+```
+
+Similarly, the climate zone also does not have very significant effect on the age of refrigerators. But there is an obvious tendency that most people in different climate zone all prefer to change refrigerators in 5 ~ 9 years. We can see that the upgrade of refrigerator products is not very frequent. Hence, developing new product and accelerating the update of product are important means for refrigerator enterprise to continuous operation and development.
+
+#1.3 How region characteristics affect the size of refrigerator
+##1.3.1 How census division affects the size of most-used refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=13}
+size_census <- select(recs,SIZRFRI1,DIVISION)
+size_census[size_census==-2] <- NA
+size_census <- na.omit(size_census)
+size_census$SIZRFRI1[size_census$SIZRFRI1==1] <- "Half-size or compact"
+size_census$SIZRFRI1[size_census$SIZRFRI1==2] <- "Small"
+size_census$SIZRFRI1[size_census$SIZRFRI1==3] <- "Medium"
+size_census$SIZRFRI1[size_census$SIZRFRI1==4] <- "Large"
+size_census$SIZRFRI1[size_census$SIZRFRI1==5] <- "Very large"
+size_census[size_census==1] <- "New England"
+size_census[size_census==2] <- "Middle Atlantic"
+size_census[size_census==3] <- "East North Central"
+size_census[size_census==4] <- "West North Central"
+size_census[size_census==5] <- "South Atlantic"
+size_census[size_census==6] <- "East South Central"
+size_census[size_census==7] <- "West South Central"
+size_census[size_census==8] <- "Mountain North"
+size_census[size_census==9] <- "Mountain South"
+size_census[size_census==10] <- "Pacific"
+size_census$SIZRFRI1 <- as.factor(size_census$SIZRFRI1)
+
+#plot the frequency of most-used refrigerator in different size and census division
+ggplot(data = size_census) + 
+  geom_bar(mapping = aes(x = DIVISION, fill = SIZRFRI1), position = "dodge",alpha=0.5)+labs(x="Census Division", y="Frequency of Refrigerator", title="Frequency of most-used refrigerator in different sizes and census divisions")
+
+#plot the relevant frequency of most-used refrigerator in different size and census division
+ggplot(data = size_census) + 
+  geom_bar(mapping = aes(x = DIVISION, fill = SIZRFRI1), position = "fill",alpha=0.5)+labs(x="Census Division", y="Relevant Frequency of Refrigerator", title="Relevant frequency of most-used refrigerator in different sizes and census divisions")
+```
+
+As we can see from the plot above, the medium and large size refrigerators are very popular in all the census division. Thus, we can product much more medium and large refrigerator than the other products. And all the regions except the South has more medium refrigerator than the large one. Maybe it is because of the hot weather in South part of US, people need more space in the refrigerator. Thus, we can product a little bit more large refrigerators in South.
+
+##1.3.2 How Metropolitan or Micropolitan division affects the size of most-used refrigerator
+```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.height=3, fig.width=8}
+#get the number of different size of most-usd refrigerator used in Metropolitan or Micropolitan area
+size_metmic <- select(recs,SIZRFRI1,METROMICRO)
+size_metmic[size_metmic==-2] <- NA
+size_metmic <- na.omit(size_metmic)
+size_metmic$SIZRFRI1[size_metmic$SIZRFRI1==1] <- "Half-size or compact"
+size_metmic$SIZRFRI1[size_metmic$SIZRFRI1==2] <- "Small"
+size_metmic$SIZRFRI1[size_metmic$SIZRFRI1==3] <- "Medium"
+size_metmic$SIZRFRI1[size_metmic$SIZRFRI1==4] <- "Large"
+size_metmic$SIZRFRI1[size_metmic$SIZRFRI1==5] <- "Very large"
+size_metmic$SIZRFRI1 <- as.factor(size_metmic$SIZRFRI1)
+
+#plot the frequence of refrigerator in Metropolitan or Micropolitan area
+ggplot(data=size_metmic)+geom_bar(aes(x=METROMICRO, fill = SIZRFRI1), position = "dodge",alpha = 1/2)+labs(x="Metropolitan Area or Micropolitan Area", y="Frequency of refrigerator", title="Relevant frequence of different sizes most-used refrigerator in Metropolitan or Micropolitan Area")
+
+#plot the relevant frequence of refrigerator in Metropolitan or Micropolitan area
+ggplot(data=size_metmic)+geom_bar(aes(x=METROMICRO, fill = SIZRFRI1), position = "fill",alpha = 1/2)+labs(x="Metropolitan Area or Micropolitan Area", y="Relevant Frequency of Refrigerator", title="Relevant frequence of different sizes most-used refrigerator in Metropolitan or Micropolitan Area")
+```
+
+As we can see from the frequency and relevant plots, it seems no matter what kind of region division, all types of areas tend to have much more medium and large refrigerator than the others. It seems that Medium and large refrigerators are more commonly used and cost efficient. Thus, we can make conclusion that we should produce more large and medium size refrigerator than the other sizes in all areas.
+
+##1.3.3 How do Climate Zones affect the size of refrigerators
+```{r, warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=9}
+refrig_sizemod %>%
+  filter(CLIMATE_REGION_PUB != "") %>%
+  ggplot(aes(x = CLIMATE_REGION_PUB,  fill = SIZRFRI1)) +
+  geom_bar(position = "dodge") +
+  scale_fill_brewer(palette = 2, name = "Size") +
+  ggtitle("Different Size of Refrigerators in different Climate Zones") +
+  labs(x = "Climate Zone", y = "Counts")
+
+kable(cbind(prop.table(as.matrix(refrig_sizetable), margin = 1)), 
+      col.names = c("Half-size or compact", "Small", "Medium", "Large", "Very large"),
+      caption = "The Proportion of Different Size of Refrigerators in different Climate Zone")
+```
+
+The climate zone does not have very significant effect on the size of refrigerators. However, it is clearly that every climate zone prefers medium and large refrigerators. So this result identifies medium and large refrigerators to be one of the major trends that will have a positive impact on the growth of the refrigerator market in the coming years.
+
+#1.4 How do Climate Zones affect whether has through-the-door ice of refrigerators
+```{r, warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=7}
+refrig_icemod %>%
+  filter(CLIMATE_REGION_PUB != "") %>%
+  group_by(CLIMATE_REGION_PUB) %>%
+  ggplot() +
+  geom_bar(aes(x = CLIMATE_REGION_PUB, fill = ICE), width = 0.6) +
+  ggtitle("Through-the-door Ice on Refrigerators in different Climate Zones") +
+  labs(x = "Climate Zone", y = "Counts") 
+
+kable(cbind(prop.table(as.matrix(refrig_icetable), margin = 1)), 
+      col.names = c("No", "Yes"), 
+      caption = "The Proportion of having Through-the-door Ice on Refrigerators in different Climate Zone")
+```
+
+From the figure and table above, the result is reasonable that clearly people in hot-dry/mixed-dry, and hot-humid areas tend to this feature on refrigerators. With through-the-door ice on refrigerators, people will have more space for frozen foods. The rest three climate zones are relatively less in percentage.
+
+#2 How household income affect the refrigerator selling
+##2.1 How does different household income affect the number of refrigerators
+```{r, fig.height=3, fig.width=8, warning=FALSE,echo=FALSE, message=FALSE}
+recs %>% 
+  group_by(MONEYPY) %>%
+  select(MONEYPY, NUMFRIG) %>%
+  summarise(mean_num_of_refrigs = mean(NUMFRIG)) %>%
+  ggplot(aes(x = MONEYPY, y = mean_num_of_refrigs)) +
+  geom_point(colour = "#880011", size = 3) +
+  ggtitle("Average Number of Refrigerators used for different Annual Household Income") +
+  labs(x = "Annual gross household income for the last year", y = "Average number of refrigerators used") +
+  geom_text(aes(label=sprintf("%0.2f", round(mean_num_of_refrigs, digits = 2))), size = 5, vjust = -0.5, colour = "#880011")
+```
+
+From the figure above, we can see that as income increases, the average number of refrigerators used increases from 1.16 to 1.80. This indicates that households with higher-income are more likely to use refrigerators, and they may prefer qucikly renewed products with such characteristics as advanced technology, complicated function.
+
+##2.2 How does different household income affect the size of refrigerators
+```{r,warning=FALSE,echo=FALSE, message=FALSE, fig.height=3, fig.width=8}
+tab <- data.frame(refrig_sizetable2)
+names(tab) <- c("money", "size", "count")
+tab %>%
+  ggplot(aes(x = money,  y = size)) +
+  geom_tile(aes(fill = count), colour = "white") +
+  ggtitle("Different Size of Refrigerators of household for different 
+          annual household income") +
+  labs(x = "Annual gross household income for the last year", y = "Size of Refrigerators") 
+
+kable(cbind(prop.table(refrig_sizetable2, margin = 1)),
+      col.names = c("Half-size or compact", "Small", "Medium", "Large", "Very large"),
+      caption = "The Proportion of Different Size of Refrigerators for each income level")
+```
+
+The effect of household income on refrigerators isn't so obvious as effects on number. But like climate zone, there is a clear phenomenon that people all prefer to use medium and large refrigerators regardless of income. What we need to notice is that the percentage of medium refrigerators delines to 30.3% from 57.5% as income increases, which is the opposite of the percentage of large refrigerators. The percentage of large refrigerators increases from 28.3% to 61.1% as income increases. Moreover, the percentage of very large refrigerators also increases with higher-income.
+
+##2.3 How does different household income affect whether has through-the-door ice of refrigerators
+```{r, fig.width=7, fig.height=3, warning=FALSE,echo=FALSE, message=FALSE}
+spineplot(x = refrig_icemod$MONEYPY, y = refrig_icemod$ICE, 
+          main = "Through-the-door Ice on Refrigerators for different annual household income",
+          xlab = "Annual household income", 
+          ylab = "Through-the-door Ice",
+          off = 0.5)
+
+kable(cbind(prop.table(refrig_icetable2, margin = 1)),
+      caption = "The Proportion of having Through-the-door Ice on Refrigerators for each income level")
+```
+
+The result is clearly that the percentage of having through-the-door ice on refrigerators increases as household income increases.
+With the high speed of the development of science and technology, traditional design method can no longer satisfy the quickly responding requirement of the refrigerator market. High-earning households require products with diversification and high-tech. So companies need to focus on technological innovation to serve higher-income groups, also they could add some discount on the products to those consumers with less income.
+  
+##2.4 How does different household income affect the age of refrigerators
+```{r, warning=FALSE,echo=FALSE, message=FALSE, fig.width=9, fig.height=6}
+refrig_agemod %>%
+  group_by(MONEYPY) %>%
+  ggplot(aes(x = AGERFRI1, fill = MONEYPY)) +
+  geom_histogram(colour = "black", binwidth = 30, stat = "count") +
+  facet_wrap(~ MONEYPY, nrow = 4) +
+  ggtitle("Different Age of Refrigerators for different annual household income") +
+  labs(x = "Age of refrigerators", y = "Counts") +
+  theme(legend.position="none")
+
+kable(cbind(prop.table(as.matrix(refrig_agetable2), margin = 1)),
+      col.names = c("< 2 years", "2~4 years", "5~9 years",
+                    "10~14 years", "15~19 years", "> 20 years"),
+      caption = "The Proportion of different age of Refrigerators for each income level")
+```
+
+From the figure above, we can see a similar pattern in different household income, which is, most people prefer using a refrigerator for 5~9 years regardless of income. The percent of age (5~9 years) in different income groups maintain around 35%, and The percent of age (2~4 years) is about 22%. Hence, more than half of households is willing to change their refrigerators in the range of 2 to 9 years.
+
+#3 How factors affect purchasing energy star qualified refrigerator
+##3.1 Expolore the relation between whether people would purchase energy star qualified refrigerator and where they live.
+```{r,warning=FALSE,message=FALSE,echo=FALSE,fig.height=3,fig.width=13}
+#plot the number of respondent in each answer of whether use enery star qualified refrigerator
+ggplot(data=recs)+
+  geom_bar(mapping = aes(as.factor(ESFRIG),fill=ESFRIG))
+
+#get rid of -2,and set -8,-9 to 0 in ESFRIG
+division_esf<-select(recs,ESFRIG,DIVISION)
+division_esf[division_esf==-2]<-NA
+division_esf<-na.omit(division_esf)
+division_esf[division_esf==-8]<-0
+division_esf[division_esf==-9]<-0
+
+#get the number of people would use energy star qualified refrigerator in each region
+by_division=group_by(division_esf, DIVISION) %>%
+summarise(num_yes=sum(ESFRIG))
+
+#plot the number of people would use energy star qualified refrigerator in each region
+by_division[by_division==1] <- "New England"
+by_division[by_division==2] <- "Middle Atlantic"
+by_division[by_division==3] <- "East North Central"
+by_division[by_division==4] <- "West North Central"
+by_division[by_division==5] <- "South Atlantic"
+by_division[by_division==6] <- "East South Central"
+by_division[by_division==7] <- "West South Central"
+by_division[by_division==8] <- "Mountain North"
+by_division[by_division==9] <- "Mountain South"
+by_division[by_division==10] <- "Pacific"
+
+ggplot(data=by_division)+geom_bar(aes(x=DIVISION, y=num_yes, fill=DIVISION),stat = "identity",alpha=0.5)+labs(x="DIVISION", y="Number of people would buy esqf")
+
+#test whether there is a significant difference between using energy star qualified refri and where they live
+reg_esf<-lm(ESFRIG~DIVISION,data = recs)
+kable(anova(reg_esf),caption="anova test of DIVISION and ESFRIG")
+
+#get the average number of people would buy energy star qualified refrigerator
+ave_division=group_by(division_esf, DIVISION) %>%
+summarise(ave_yes=mean(ESFRIG))
+
+ave_division[ave_division==1] <- "New England"
+ave_division[ave_division==2] <- "Middle Atlantic"
+ave_division[ave_division==3] <- "East North Central"
+ave_division[ave_division==4] <- "West North Central"
+ave_division[ave_division==5] <- "South Atlantic"
+ave_division[ave_division==6] <- "East South Central"
+ave_division[ave_division==7] <- "West South Central"
+ave_division[ave_division==8] <- "Mountain North"
+ave_division[ave_division==9] <- "Mountain South"
+ave_division[ave_division==10] <- "Pacific"
+
+ggplot(data=ave_division)+geom_bar(aes(x=DIVISION, y=ave_yes,fill=DIVISION),stat = "identity",alpha=0.5)+labs(x="DIVISION", y="Average number of people buy esqf")
+```
+
+Firstly, we plot a histogram to summarise the responses of whether they would use energy star refrigerator. The histogram indicates that the answer of lots of people are yes, so it is meaningful to explore more details of it.
+It is reasonable that region is a factor on the selling of energy star refrigerator. First, we take a look at the number of people would buy energy star refrigerator in different divisons. From the plot above we can see that South Atlantic and Pacific have the greatest number of people would like to purchase energy star qualified refrigerator while the Mountain South, Mountain North and New England have the smallest. Base on the common sense that the temperature in South Atalntic and Pacific are great than other area, so they prefer purchasing the energy star qualified refrigerator to save more money. Then we can conclude that the marketing people should focus more on South Atlantic and Pacific than other area.
+Secondly, we plot the average number of people would buy energy star refrigerator in different division. And the result indicates that the there are no siginificant difference between each division.
+To test our conclusion, we use anova to test whether there is a significant relation between the number of people would like to buy energy star qualified refrigerator and the area they live. The p-value is 0.003 here so we can conclude that division does effect the number of energy star refreigerator.
+
+##3.2 The relation between whether people would purchase energy star qualified refrigerator and their income.
+```{r,warning=FALSE,message=FALSE,echo=FALSE,fig.height=3,fig.width=13}
+income_esf<-select(recs,ESFRIG,MONEYPY)
+income_esf[income_esf==0]<-NA
+income_esf<-na.omit(income_esf)
+income_esf[income_esf==-8]<-0
+income_esf[income_esf==-9]<-0
+
+by_income=group_by(recs, MONEYPY) %>%
+summarise(num_yes1=sum(ESFRIG))
+
+#plot the number of people would use energy star qualified refrigerator in class of income
+by_income[by_income==1] <- "Less than $20,000"
+by_income[by_income==2] <- "$20,000-$39,999"
+by_income[by_income==3] <- "$40,000-$59,999"
+by_income[by_income==4] <- "$60,000-$79,999"
+by_income[by_income==5] <- "$80,000-$99,999"
+by_income[by_income==6] <- "$100,000-$119,999"
+by_income[by_income==7] <- "$120,000-$139,999"
+by_income[by_income==8] <- "$140,000 or more"
+ggplot(data=by_income)+geom_bar(aes(x=MONEYPY, y=abs(num_yes1),fill=MONEYPY),stat = "identity",alpha=0.5)+labs(x="Income", y="Number of people would buy esqf")
+
+#test whether there is a significant difference between using energy star qualified refri and income
+mon_esf<-lm(ESFRIG~MONEYPY,data = recs)
+kable(anova(mon_esf),caption="anova test of MONEYPY and ESFRIG")
+
+#get the average number of people would buy energy star qualified refrigerator in different income
+ave_income=group_by(income_esf, MONEYPY) %>%
+summarise(ave_yes1=mean(ESFRIG))
+
+ave_income[ave_income==1] <- "Less than $20,000"
+ave_income[ave_income==2] <- "$20,000-$39,999"
+ave_income[ave_income==3] <- "$40,000-$59,999"
+ave_income[ave_income==4] <- "$60,000-$79,999"
+ave_income[ave_income==5] <- "$80,000-$99,999"
+ave_income[ave_income==6] <- "$100,000-$119,999"
+ave_income[ave_income==7] <- "$120,000-$139,999"
+ave_income[ave_income==8] <- "$140,000 or more"
+
+ggplot(data=ave_income)+geom_bar(aes(x=MONEYPY, y=ave_yes1,fill=MONEYPY),stat = "identity",alpha=0.5)+labs(x="MONEYPY", y="Average number of people buy esqf")
+```
+
+From the plot above we can see that the houldhold with average annual gross income that more than $100,000 prefer the energy star qualified refrigerator than other people. The possible reason might be they can afford the energy star qualified refrigerator and want to save some money through the refregerator. Therefore, one useful marketing suggestion is to advertise the energy star refrigerators to high-income people, and at the same time let the relative low income people know more about the energy star qualified refrigerator so they may buy it in the future.
+To test our conclusion, we use anova to test whether there is a significant relation between income and purchasing energy star qualified refrigerator. From the table above, the p-value indicates a significant relation between the two variables.
+
+##3.3 The relation between age of most-used refrigerator and whether people would buy energy star qualified refrigerator.
+```{r,warning=FALSE,message=FALSE,echo=FALSE,fig.height=3,fig.width=12}
+#get rid of -2, and set 15+ years to a group in age
+age_esf<-select(recs,ESFRIG,AGERFRI1)
+age_esf[age_esf==-2]<-NA
+age_esf<-na.omit(age_esf)
+age_esf[age_esf==-8]<-0
+age_esf[age_esf==-9]<-0
+age_esf[age_esf==41]<-4
+age_esf[age_esf==42]<-5
+#get the number of people purchase energy star qualified refrigerator in each age of most-used refrigerator
+by_age=group_by(age_esf,AGERFRI1) %>%
+  summarise(num_ageyes=sum(ESFRIG))
+
+#plot the number of people purchase energy star qualified refrigerator in each age of  most-used refrigerator
+by_age[by_age==1]<-"Less than 2 years old"
+by_age[by_age==2]<-"2 to 4 years old"
+by_age[by_age==3]<-"5 to 9 years old"
+by_age[by_age==4]<-"10 to 14 years old"
+by_age[by_age==5]<-"15 years or older"
+
+ggplot(data = by_age)+geom_bar(aes(x=AGERFRI1,y=num_ageyes,fill=AGERFRI1),stat = "identity",alpha=0.5)+labs(x="Age of most-used refrigerator",y="Number of people buy esqf")
+```
+
+The plot above shows that the household have age of most-used refrigerator between 5 to 9 years old prefer change their current refrigerators to energy star qualified refrigerators. One reasonable reason is that they have already used their current refrigerators for a while and want to change a energy star qualified refrigerator to save more money in the future. Therefore, the marketing people should foucus more on those people in energy star qualified refrigerator selling.
+
+#4 How factors affect purchasing recycling refrigerators
+##4.1 The relation between receiving recycling refrigerators and where they live
+Sometimes some people receiving free recycling of old refrigerator instead of purchasing new refrigerator. We want to explore the relation between using old refrigerator and where they live.  
+```{r,warning=FALSE,message=FALSE,echo=FALSE,fig.height=3,fig.width=13}
+#plot the number of respondents in each answer of whether use enery star qualified refrigerator
+ggplot(data=recs)+
+  geom_bar(mapping = aes(as.factor(RECYCAPP),fill=RECYCAPP))
+
+#get rid of -2,and set -8,-9 to 0 in RECYCAPP
+division_rec<-select(recs,RECYCAPP,DIVISION)
+division_rec[division_rec==-2]<-NA
+division_rec<-na.omit(division_rec)
+division_rec[division_rec==-8]<-0
+division_rec[division_rec==-9]<-0
+#get the number of people would receive free recycling of refrigerator in each region
+by_division1=group_by(division_rec, DIVISION) %>%
+summarise(num_yes2=sum(RECYCAPP))
+
+#plot the number of people would receive free recycling of refrigerator in each region
+by_division1[by_division1==1] <- "New England"
+by_division1[by_division1==2] <- "Middle Atlantic"
+by_division1[by_division1==3] <- "East North Central"
+by_division1[by_division1==4] <- "West North Central"
+by_division1[by_division1==5] <- "South Atlantic"
+by_division1$DIVISION[by_division1$DIVISION==6] <- "East South Central"
+by_division1[by_division1==7] <- "West South Central"
+by_division1[by_division1==8] <- "Mountain North"
+by_division1[by_division1==9] <- "Mountain South"
+by_division1[by_division1==10] <- "Pacific"
+
+ggplot(data=by_division1)+geom_bar(aes(x=DIVISION, y=num_yes2,fill=DIVISION),stat = "identity",alpha=0.5)+labs(x="Divison", y="Number of people receive recycling refri")
+
+#test whether there is a significant difference between receiving free recycling of refrigerator and region
+rec_reg<-lm(RECYCAPP~DIVISION,data = recs)
+kable(anova(rec_reg),caption="anova test of RECYCAPP and DIVISION")
+
+#get the average number of people would receive recycling refrigerator 
+ave_division1=group_by(division_rec,DIVISION) %>%
+  summarise(ave_recyes=mean(RECYCAPP))
+
+ave_division1[ave_division1==1] <- "New England"
+ave_division1[ave_division1==2] <- "Middle Atlantic"
+ave_division1[ave_division1==3] <- "East North Central"
+ave_division1[ave_division1==4] <- "West North Central"
+ave_division1[ave_division1==5] <- "South Atlantic"
+ave_division1[ave_division1==6] <- "East South Central"
+ave_division1[ave_division1==7] <- "West South Central"
+ave_division1[ave_division1==8] <- "Mountain North"
+ave_division1[ave_division1==9] <- "Mountain South"
+ave_division1[ave_division1==10] <- "Pacific"
+
+ggplot(data=ave_division1)+geom_bar(aes(x=DIVISION, y=ave_recyes,fill=DIVISION),stat = "identity",alpha=0.5)+labs(x="DIVISION", y="Average number of people recieve recycling refri")
+```
+
+Firstly, let's get a first impression of roughly how many people would reveive recycling refregerator. According to histogram, some people receive old refrigeratos so it is useful to explore more details.
+From the histogram above we see that people live in Pacific area prefer receving old recycling refrigerator. A marketing suggestion is that a little discount to the refrigerator in Pacifict so they may not receive old refrigerator but buy a new one instead. 
+Using anova again to test our conclusion. The p-value here verifies that there is a significant relation between receiving old recycling refrigerator and where they live.
+
+##4.2 The relation between receiving recycling refrigerator and household income
+Another factor that might be a reason of receiving recycling refrigerator is household income.
+```{r,warning=FALSE,message=FALSE,echo=FALSE,fig.height=3,fig.width=12}
+mon_rec<-select(recs,MONEYPY,RECYCAPP)
+mon_rec[mon_rec==-2]<-NA
+mon_rec<-na.omit(mon_rec)
+mon_rec[mon_rec==-8]<-0
+mon_rec[mon_rec==-9]<-0
+
+by_income1=group_by(mon_rec, MONEYPY) %>%
+summarise(num_yes3=sum(RECYCAPP))
+
+#plot the number of people would use energy star qualified refrigerator in class of income
+by_income1[by_income1==1] <- "Less than $20,000"
+by_income1[by_income1==2] <- "$20,000-$39,999"
+by_income1[by_income1==3] <- "$40,000-$59,999"
+by_income1[by_income1==4] <- "$60,000-$79,999"
+by_income1[by_income1==5] <- "$80,000-$99,999"
+by_income1[by_income1==6] <- "$100,000-$119,999"
+by_income1[by_income1==7] <- "$120,000-$139,999"
+by_income1[by_income1==8] <- "$140,000 or more"
+ggplot(data=by_income1)+geom_bar(aes(x=MONEYPY, y=num_yes3,fill=MONEYPY),stat = "identity",alpha=0.5)+labs(x="Income", y="Number of people receive recycling refri")
+
+mon_recy<-lm(RECYCAPP~MONEYPY,data = recs)
+kable(anova(mon_recy),caption="anova test of MONEYPY and RECYCAPP")
+
+ave_income1=group_by(mon_rec, MONEYPY) %>%
+summarise(ave_yes2=mean(RECYCAPP))
+
+ave_income1[ave_income1==1] <- "Less than $20,000"
+ave_income1[ave_income1==2] <- "$20,000-$39,999"
+ave_income1[ave_income1==3] <- "$40,000-$59,999"
+ave_income1[ave_income1==4] <- "$60,000-$79,999"
+ave_income1[ave_income1==5] <- "$80,000-$99,999"
+ave_income1[ave_income1==6] <- "$100,000-$119,999"
+ave_income1[ave_income1==7] <- "$120,000-$139,999"
+ave_income1[ave_income1==8] <- "$140,000 or more"
+
+ggplot(data=ave_income1)+geom_bar(aes(x=MONEYPY, y=ave_yes2,fill=MONEYPY),stat = "identity",alpha=0.5)+labs(x="MONEYPY", y="Average number of people receive recycling refi")
+
+```
+
+According to the plots, households with income less than $20,000 would not receive recycling refirgerator. One of the reasons might be they do not want to spend money on old refrigerators. The marketing suggestion is that encouraging high-income household to buy new refigerator and give them discount on regrigerators.  
+To test our conclusion, use anova again to test whether there is a significant relation between income and receiving old recycling refrigerator. The p-value implies there is a siginificant relation between income and receiving recycling refrigerator.
+
+#5 Statistics model for refrigerator data prediction and variable selection for significant factors
+```{r,warning= FALSE, message= FALSE, echo=FALSE}
+require(MASS)
+refrig1<-read.csv('~/Desktop/recs2015_public_v1.csv')
+recs<-refrig1[-c(which(refrig1$SIZRFRI1==-2),c(which(refrig1$AGERFRI1==-2))),]
+
+recs<-recs[-c(which(refrig1$SIZRFRI1==-2),c(which(refrig1$AGERFRI1==-2))),]
+recs$AGERFRI<-recs$AGERFRI1
+
+recs$AGERFRI[recs$AGERFRI == 1] <- 1
+recs$AGERFRI[recs$AGERFRI == 2] <- 2
+recs$AGERFRI[recs$AGERFRI == 3] <- 3
+recs$AGERFRI[recs$AGERFRI == 41] <- 4
+recs$AGERFRI[recs$AGERFRI == 5 ] <- 6
+recs$AGERFRI[recs$AGERFRI == 42] <- 5
+
+recs$AGERFRI<-as.factor(recs$AGERFRI)
+
+recs$SIZRFRI1<-as.factor(recs$SIZRFRI1)
+```
+##5.1 Create new variable
+```{r,warning= FALSE, message= FALSE, echo=FALSE}
+recs$numF<-ifelse(recs$NUMFRIG<2,0,1)
+```
+
+As we could obeserve from the number of refrigerator, over 90% of people have either 1 or 2 refrigerator.
+Because of such feature, new variable 'numF' is created in order to apply logistic regression. For people who have multiple refrigerator (more than 1 refrigerator), value '1' will be assign for variable 'numF'. For people who have 1 or less refrigerator, value '0' will be assign for variable 'numF'. 
+
+##5.2 Degree day explantion 
+Degree day is a quantitative index demonstrated to reflect demand for energy to heat or cool houses and businesses.This index is derived from daily temperature observations at nearly 200 major weather stations in the contiguous United States. The "heating year" during which heating degree days are accumulated extends from July 1st to June 30th and the "cooling year" during which cooling degree data are accumulated extends from January 1st to December 31st. A mean daily temperature (average of the daily maximum and minimum temperatures) of 65°F is the base for both heating and cooling degree day computations. Heating degree days are summations of negative differences between the mean daily temperature and the 65°F base; cooling degree days are summations of positive differences from the same base. For example, cooling degree days for a station with daily mean temperatures during a seven-day period of 67,65,70,74,78,65 and 68, are 2,0,5,9,13,0,and 3, for a total for the week of 32 cooling degree days.
+
+```{r,results="hide",warning= FALSE, message= FALSE, echo=FALSE}
+cor(recs$HDD65,recs$CDD65)
+degr<-lm(recs$HDD65~recs$CDD65)
+summary(degr)
+```
+
+```{r,fig.width=7, fig.height=3, results="hide",warning= FALSE, message= FALSE, echo=FALSE}
+ggplot(recs, aes(x=HDD65, y=CDD65)) + 
+  geom_point()+geom_smooth(method=lm , color="blue", se=TRUE)+
+  labs(title = "Relation between cooling and heating degree day")
+```
+
+As the explantion of the degree day, there should be a correlation exists bewtween heating and cooling degree day. And from the result above, there is a strong negative correlation (-0.7885685) bewteen heating and cooling degree day. To avoid the collinearity, only one of the degreee day variable will be use in the following model.
+
+##5.3 Overall Statistic, Model Selection and Model Evaluation
+##5.3.1 Number of refrigerator
+```{r,results="hide", echo=FALSE, warning=FALSE, message=FALSE}
+
+train.num <- recs[1:4000,]
+test.num <- recs[4001:5686,]
+
+numR <- glm(numF ~ HDD65+CDD65+as.factor(CLIMATE_REGION_PUB)
+             +as.factor(MONEYPY)+as.factor(REGIONC)+as.factor(DIVISION)
+             +as.factor(METROMICRO),family=binomial(link='logit'),data=train.num)
+
+
+
+```
+
+```{r}
+selection<-step(numR)
+```
+
+In order to decide the significant variables that effect the number of refrigerator, our group did a binary logistic regression and variable selection based on the model AIC. Our result indicate that variable heating degree day (HDD65), Climate Zone (CLIMATE_REGION_PUB), Income (MONEYPY), Division (DIVISION) are significant factor for the number of refrigerator model. 
+
+```{r,results="hide", warning=FALSE, message=FALSE, echo=FALSE}
+num.RF <- glm(numF ~ HDD65+as.factor(CLIMATE_REGION_PUB)
+             +as.factor(MONEYPY)+as.factor(DIVISION)
+             ,family=binomial(link='logit'),data=train.num)
+summary(num.RF)
+
+```
+
+```{r,fig.width=7, fig.height=3, echo=FALSE, warning=FALSE, message=FALSE}
+p.num <- predict(num.RF, newdata=test.num, type="response")
+pr.num <- prediction(p.num, test.num$numF)
+prf.num <- performance(pr.num, measure = "tpr", x.measure = "fpr")
+plot(prf.num,main='ROC curve for logistics model')
+
+auc <- performance(pr.num, measure = "auc")
+auc <- auc@y.values[[1]]
+```
+
+We also did a prediction by using ROC curve and AUC method, based on the result above, our final model has Prediction Accuracy 0.664. 
+
+##5.3.2 Size of refrigerator
+```{r,results="hide", warning=FALSE, message=FALSE, echo=FALSE}
+sizeR <- polr(as.factor(SIZRFRI1)~HDD65+CDD65+as.factor(CLIMATE_REGION_PUB)+as.factor(MONEYPY)+as.factor(REGIONC)+as.factor(DIVISION)
++as.factor(METROMICRO),data=recs,Hess=TRUE)
+stepAIC(sizeR)
+```
+
+```{r,results="hide", warning=FALSE, message=FALSE, echo=FALSE}
+size.RF <- polr(as.factor(SIZRFRI1) ~ HDD65+as.factor(CLIMATE_REGION_PUB)
+              +as.factor(MONEYPY)+as.factor(DIVISION)
+              ,data=recs,Hess=TRUE)
+
+size.table <- coef(summary(size.RF))
+pSize <- pnorm(abs(size.table[, "t value"]), lower.tail = FALSE) * 2
+(size.table <- cbind(size.table, "p value" = pSize))
+
+```
+
+In order to decide the significant variables that effect the size of refrigerator, our group did a Ordinal Logistic Regression and variable selection based on the model AIC. Our result indicate that variable heating degree day (HDD65), Climate Zone (CLIMATE_REGION_PUB), Income (MONEYPY), Division (DIVISION) are significant factor for the size of refrigerator model. 
+
+##5.3.3 Age of refrigerator
+```{r,results="hide", warning=FALSE, message=FALSE, echo=FALSE}
+
+ageR <- polr(as.factor(AGERFRI) ~ HDD65+CDD65+as.factor(CLIMATE_REGION_PUB)
+             +as.factor(MONEYPY)+as.factor(REGIONC)+as.factor(DIVISION)
+             +as.factor(METROMICRO),data=recs,Hess=TRUE)
+
+stepAIC(ageR,direction = 'both')
+
+```
+
+```{r,results="hide", warning=FALSE, message=FALSE, echo=FALSE}
+age.RF<- polr(as.factor(AGERFRI)~HDD65+as.factor(CLIMATE_REGION_PUB)
+              +as.factor(MONEYPY)+as.factor(DIVISION)
+              +as.factor(METROMICRO),data=recs,Hess=TRUE)
+
+age.table <- coef(summary(age.RF))
+pAge <- pnorm(abs(age.table[, "t value"]), lower.tail = FALSE) * 2
+(age.table <- cbind(age.table, "p value" = pAge))
+
+```
+
+In order to decide the significant variables that effect the age of refrigerator, our group did a Ordinal Logistic Regression and variable selection based on the model AIC. Our result indicate that variable heating degree day (HDD65), Climate Zone (CLIMATE_REGION_PUB), Income (MONEYPY), Division (DIVISION) and Housing unit in Census Metropolitan or Micropolitan Statistical Area (METROMICRO), are significant factor for the age of refrigerator model. 
+
+#Conclusion
+In conclusion, marketing department should focus on city with large population. Although region characteristics do affect average number of refrigerator, the larger the population is, the more refrigerator people will buy and the more old refrigerator they will replace. Beside, people in metropolitain part tend to have higher income and households with higher income have more average of refrigerators.
+Additionally, all parts of people from US regardless of income are likely buy medium or large size of refrigerator. But the percentage of large refrigerators is increasing as income increases.Furthermore, households with higher income enjoy using refrigerators equipped with high-tech feature (through-the-door ice).
+In exploring purchasing energy star qualified refrigerator, we found out that people live in South Atlantic and Pacific prefer purchasing energy star qualified refrigerators. The marketing suggestion aim at this is to focus more on people live in South Atlantic and Pacific in energy star qualified refrigerators. 
+Moreover, we believe the households with average annual gross more than $100,000 prefer purchasing the energy star qualified refrigerator. Therefore, the suggestion is to advertise the energy star refrigerator to high-income people, and let the relative low-income people know more about this product so they may buy it in the future. 
+Furthermore, households have the most-used refrigerator with age between 5 to 9 years old prefer changing their current refrigerator to an energy starred one. Therefore, the marketing people should focus more on those households.
+In analyzing the what may cause whether receiving recycling refrigerator, we find that people live in Pacific area prefer receiving recycling refrigerator. Therefore, a little discount can be applied in these area to encourage people buy a new one.
+Finally, households with income less than $20000 would not receive recycling refrigerators. The reasonable suggestion is give them discount and thus encourage them to buy a new refrigerator.
